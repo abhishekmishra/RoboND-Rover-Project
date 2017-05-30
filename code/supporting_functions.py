@@ -20,7 +20,7 @@ def update_rover(Rover, data):
             if np.isfinite(tot_time):
                   Rover.total_time = tot_time
       # Print out the fields in the telemetry data dictionary
-      print(data.keys())
+      #print(data.keys())
       # The current speed of the rover in m/s
       Rover.vel = np.float(data["speed"])
       # The current position of the rover
@@ -42,7 +42,8 @@ def update_rover(Rover, data):
       
       print('speed =',Rover.vel, 'position =', Rover.pos, 'throttle =', 
       Rover.throttle, 'steer_angle =', Rover.steer, 'near_sample', Rover.near_sample, 
-      'picking_up', data["picking_up"])
+      'picking_up', data["picking_up"], 'num angles = ', Rover.num_angles(),
+      'mode =', Rover.mode)
 
       # Get the current image from the center camera of the rover
       imgString = data["image"]
