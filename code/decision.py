@@ -75,6 +75,7 @@ def decision_step(Rover):
 
     return Rover
 
+
 def getSteerAngle(Rover):
     '''
     At any position of the rover, we compute the steer angle
@@ -107,33 +108,38 @@ def getSteerAngle(Rover):
         #angles are same sign, means obstacle in front, get away
         if (max_angle <= 0 and min_angle <= 0):
             print('both angles are negative')
-            steer_angle = np.clip(min_angle, -15, 15)
+            steer_angle = min_angle
         elif (max_angle > 0 and min_angle > 0):
             print('both angles are positive')
-            steer_angle = np.clip(max_angle, -15, 15)
+            steer_angle = max_angle
         else:    
             #angle_range = max_angle - min_angle
             if left_angle > right_angle:
-                steer_angle = np.clip(left_angle, -15, 15)
+                steer_angle = left_angle
                 print('left has more space - turning left', steer_angle)
             elif left_angle < 10:
-                steer_angle = np.clip(min_angle, -15, 15)
+                steer_angle = min_angle
                 print('too close to facing left wall - turning right', steer_angle)
             else:
-                steer_angle = np.clip(np.mean(angles) + max_angle/5, -15, 15)
+                steer_angle = np.mean(angles) + max_angle/5
                 print('keep sort of left/straight', steer_angle)
+
+    if steer_angle != None:
+        steer_angle = np.clip(steer_angle, -15, 15)
         
     return steer_angle
 
 def isNavigable(Rover, angle):
     int_angles = Rover.nav_angles_rad().astype(int)
     #print (int_angles, angle)
-    if int(angle) in int_angles:
-        #print('angle is navigable')
-        return True
-    else:
-        #print('angle is NOT navigable')
-        return False
+    all_present = True
+    for a in range(int(angle) - 3, int(angle) + 3):
+        if not a in int_angles:
+            all_present = False
+            break
+    return all_present
+
+#def alreadySeen(Rover, angle):
 
 def canGoForward(Rover):
     steerAngle = getSteerAngle(Rover)
