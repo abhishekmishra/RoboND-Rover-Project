@@ -44,7 +44,7 @@ def decision_step(Rover):
             if Rover.vel > 0.2:
                 Rover.throttle = 0
                 Rover.brake = Rover.brake_set
-                Rover.steer = getSteerAngle(Rover)
+                Rover.steer = -15#getSteerAngle(Rover)
             # If we're not moving (vel < 0.2) then do something else
             elif Rover.vel <= 0.2:
                 if canGoForward(Rover):
@@ -75,6 +75,103 @@ def decision_step(Rover):
 
     return Rover
 
+    
+SMALL_DIST = 30
+
+class NavRange:
+    '''
+    A class to calculate navigable angles
+    and distances from the given angles and dists list
+    
+    For each navigable angle we store a sorted list of
+    distances navigable in that angle
+    '''
+    def __init__(self, angles, dists):
+        self.angles_dists = {}
+        for i in range(len(angles)):
+            angle = int(angles[i])
+            dist = int(dists[i])
+            if not angle in self.angles_dists.keys():
+                self.angles_dists[angle] = []
+            d = self.angles_dists[angle]
+            loc = 0
+            while loc < len(d) and dist > d[loc]:
+                loc += 1
+            if loc >= len(d):
+                d.append(dist)
+            else:
+                d.insert(loc, dist)
+        #print(self.angles_dists)
+            
+
+    def left_and_right_angles(self):
+        left_angles = []
+        left_dists = []
+        right_angles = []
+        right_dists = []
+        for angle, dists in self.angles_dists.items():
+            for dist in dists:
+                if angle >= 0:
+                    left_angles.append(angle)
+                    left_dists.append(dist)
+                else:
+                    right_angles.append(angle)
+                    right_dists.append(dist)
+    
+        return (NavRange(left_angles, left_dists), NavRange(right_angles, right_dists))
+    
+    def filter_small_distances(self):
+        self.filtered_angles_dists = {}
+
+        angles_to_remove = []
+        for angle, dists in self.angles_dists.items():
+            if min(dists) > SMALL_DIST or max(dists) < SMALL_DIST:
+                angles_to_remove.append(angle)
+        for angle, dists in self.angles_dists.items():
+            if not angle in angles_to_remove:
+                self.filtered_angles_dists[angle] = dists
+    
+    def obstacle_in_front(self):
+        angles = np.array(list(self.filtered_angles_dists.keys()))
+        max_angle = np.max(angles)
+        min_angle = np.min(angles)
+        #print('max', max_angle, 'min', min_angle)
+        
+#        if (max_angle <= 0 and min_angle <= 0):
+#            print('both angles are negative')
+#            return True
+#        elif (max_angle > 0 and min_angle > 0):
+#            print('both angles are positive')
+#            return True
+        not_found_count = 0
+        for i in range(min_angle, max_angle):
+            if not i in angles:
+                not_found_count += 1
+            else:
+                not_found_count = 0
+            if not_found_count > 5:
+                #print(self.filtered_angles_dists)
+                print(i, 'is blocked')
+                return True
+        return False
+
+    def angles_arr(self):
+        angles = list(self.angles_dists.keys())
+        arr = np.array(angles)
+        return arr
+    
+    def wall_hugging_angle(self):
+        angles = self.angles_arr()
+        whangle = np.mean(angles)
+        return whangle
+    
+    def max_dists_mean(self):
+        max_dists = []
+        for k, v in self.angles_dists.items():
+            max_dists.append(max(v))
+            
+        return np.mean(np.array(max_dists))
+   
 
 def getSteerAngle(Rover):
     '''
@@ -90,42 +187,22 @@ def getSteerAngle(Rover):
     '''
     
     angles = Rover.nav_angles_rad()
+    dists = Rover.nav_dists
+    navRange = NavRange(angles, dists)
+    navRange.filter_small_distances()
+    
     steer_angle = None
     
-    if len(angles) > 0:
-        max_angle = np.max(angles)
-        min_angle = np.min(angles)
-        
-        mean_dist = np.mean(Rover.nav_dists)
-        print ('Mean navigable distance =', mean_dist)
-    
-        left_angle = max_angle
-        right_angle = np.abs(min_angle)
-        
-        print(min_angle, max_angle, 'left available = ', 
-              left_angle, 'right available', right_angle)
-
-        #angles are same sign, means obstacle in front, get away
-        if (max_angle <= 0 and min_angle <= 0):
-            print('both angles are negative')
-            steer_angle = min_angle
-        elif (max_angle > 0 and min_angle > 0):
-            print('both angles are positive')
-            steer_angle = max_angle
-        else:    
-            #angle_range = max_angle - min_angle
-            if left_angle > right_angle:
-                steer_angle = left_angle
-                print('left has more space - turning left', steer_angle)
-            elif left_angle < 10:
-                steer_angle = min_angle
-                print('too close to facing left wall - turning right', steer_angle)
-            else:
-                steer_angle = np.mean(angles) + max_angle/5
-                print('keep sort of left/straight', steer_angle)
+    if len(navRange.filtered_angles_dists.keys()) == 0 :
+        print('No navigable angles')
+    elif navRange.obstacle_in_front():
+        print('obstacle in front')
+    else:
+        steer_angle = navRange.wall_hugging_angle()
+        print('keep sort of left/straight', steer_angle)
 
     if steer_angle != None:
-        steer_angle = np.clip(steer_angle, -15, 15)
+         steer_angle = np.clip(steer_angle, -15, 15)
         
     return steer_angle
 

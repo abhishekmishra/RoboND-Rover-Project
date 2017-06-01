@@ -76,6 +76,8 @@ class RoverState():
         self.picking_up = 0 # Will be set to telemetry value data["picking_up"]
         self.send_pickup = False # Set to True to trigger rock pickup
         
+        self.looking_for_left = True
+        
     def num_angles(self):
         if self.nav_angles == None:
             return 0
@@ -84,6 +86,7 @@ class RoverState():
         
     def nav_angles_rad(self):
         return Rover.nav_angles * 180/np.pi
+    
     
 # Initialize our rover 
 Rover = RoverState()
