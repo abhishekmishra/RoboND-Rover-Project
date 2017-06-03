@@ -75,13 +75,8 @@ class RoverState():
         self.near_sample = 0 # Will be set to telemetry value data["near_sample"]
         self.picking_up = 0 # Will be set to telemetry value data["picking_up"]
         self.send_pickup = False # Set to True to trigger rock pickup
-
-        self.threshed = None
-        self.gold_angles = None # Angles of gold pixels
-        self.gold_dists = None # Distances of gold pixels
         
-        self.moves = []
-        self.mp = ground_truth
+        self.looking_for_left = True
         
     def num_angles(self):
         if self.nav_angles == None:
@@ -89,7 +84,7 @@ class RoverState():
         else:
             return len(self.nav_angles)
         
-    def nav_angles_deg(self):
+    def nav_angles_rad(self):
         return Rover.nav_angles * 180/np.pi
     
     

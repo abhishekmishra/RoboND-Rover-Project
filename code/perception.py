@@ -169,12 +169,12 @@ def perception_step(Rover):
     world_size = Rover.worldmap.shape[0]
     scale = 10
 
+    #navigable
     xpix, ypix = rover_coords(threshed == NAVIGABLE_COLOR)
-    #print(xpix, ypix)
     x_world, y_world = pix_to_world(xpix, ypix, xpos, ypos, yaw, world_size, scale)
-    #print(x_world, y_world)
     Rover.worldmap[y_world, x_world, 2] += 1
-
+    Rover.nav_dists, Rover.nav_angles = to_polar_coords(xpix, ypix)
+    
     #obstacle
     xpix, ypix = rover_coords(threshed == OBSTACLE_COLOR)
     x_world, y_world = pix_to_world(xpix, ypix, xpos, ypos, yaw, world_size, scale)
@@ -184,13 +184,12 @@ def perception_step(Rover):
     xpix, ypix = rover_coords(threshed == GOLD_COLOR)
     x_world, y_world = pix_to_world(xpix, ypix, xpos, ypos, yaw, world_size, scale)
     Rover.worldmap[y_world, x_world, 1] += 1
+    Rover.gold_dists, Rover.gold_angles = to_polar_coords(xpix, ypix)
 
     # 8) Convert rover-centric pixel positions to polar coordinates
     # Update Rover pixel distances and angles
         # Rover.nav_dists = rover_centric_pixel_distances
         # Rover.nav_angles = rover_centric_angles
     
-    xpix, ypix = rover_coords(threshed == NAVIGABLE_COLOR)
-    Rover.nav_dists, Rover.nav_angles = to_polar_coords(xpix, ypix)
-    
+    Rover.threshed = threshed
     return Rover
