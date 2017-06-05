@@ -82,6 +82,14 @@ class RoverState():
         
         self.moves = []
         self.mp = ground_truth
+        self.medians = None
+        self.apath = None
+        self.visited = None
+        self.not_visited = None
+        self.nav_x_w = None
+        self.nav_y_w = None
+        self.nav_unique_pos = None
+        self.obspos = None
         
     def num_angles(self):
         if self.nav_angles == None:
