@@ -358,7 +358,7 @@ def perception_step(Rover):
         Rover.navpos = []
         Rover.obspos = set([])
     
-        margin = 0.5
+        margin = 0.6
         roll_max, roll_min = 360-margin, margin
         pitch_max, pitch_min = 360-margin, margin
         
