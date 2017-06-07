@@ -1,16 +1,30 @@
 import numpy as np
+from random import randint
 
-from perception import *
+def subset_angles_dists(angles, dists, angle_pred):
+    s_angles = []
+    s_dists = []
+    for i in range(len(angles)):
+        if angle_pred(angles[i]):
+            s_angles.append(angles[i])
+            s_dists.append(dists[i])
+            
+    return s_angles, s_dists
 
-#WALL_TOO_CLOSE = 3
-VISIT_DIST = 20
+def already_seen(Rover, pos):
+    x, y = pos[0], pos[1]
+    return Rover.worldmap[x, y, 2] > 0 or Rover.worldmap[x, y, 1] > 0 or Rover.worldmap[x, y, 0] > 0
 
-def mark_visited(Rover):
-    for to in Rover.not_visited:
-        dist = distance(Rover.pos, to)
-        if dist < VISIT_DIST:
-            Rover.visited.add(to)
-    Rover.not_visited = Rover.not_visited - Rover.visited
+def get_unseen_angles(Rover):
+    int_angles = Rover.nav_angles_deg().astype(int)
+    int_dists = Rover.nav_dists.astype(int)
+    angles = []
+    dists = []
+    for i in range(len(Rover.navpos)):
+        if not already_seen(Rover, Rover.navpos[i]):
+            angles.append(int_angles[i])
+            dists.append(int_dists[i])
+    return angles, dists
 
 # This is where you can build a decision tree for determining throttle, brake and steer 
 # commands based on the output of the perception_step() function
@@ -23,56 +37,67 @@ def decision_step(Rover):
     # Example:
     # Check if we have vision data to make decisions with
     
-    #setup rover path if not already set
     
-    closest_pt = closest_point_on_path(Rover)
-    #print('closest', closest_pt)
+    #left_angles, left_dists = subset_angles_dists(int_angles, int_dists, lambda x: x >= 0)
+    #right_angles, right_dists = subset_angles_dists(int_angles, int_dists, lambda x: x < 0)
     
-    next_pts = get_next_points(Rover, closest_pt)
-    print('next points', next_pts)
-    
-    if closest_pt != None and closest_pt in Rover.obspos:
-        print('target beacon is in obstacle zone, mark visited.')
-        Rover.visited.add(closest_pt)
-        Rover.not_visited = Rover.not_visited - Rover.visited
-    
-    stop_and_turn = False
-    if Rover.nav_angles is None or len(Rover.nav_angles) < Rover.stop_forward or np.mean(Rover.int_dists) < 5:
-        print('obstacle in front... stop_and_turn')
-        #print (Rover.obspos)
-        stop_and_turn = True
-        steer_angle = 15
-    elif next_pts != None and len(next_pts) > 0:
-        adeg = np.zeros(len(next_pts))
-        for i in range(len(next_pts)):
-            adeg[i] = next_pts[i][1]
-        print('avg over', adeg)
-        target_angle = np.mean(adeg)
-        if target_angle > 45 or target_angle < -45:
-            print ('target angle not in [-45, 45]')
-            stop_and_turn = True
-        elif target_angle > np.max(Rover.nav_angles_deg()) or target_angle < np.min(Rover.nav_angles_deg()):
-            print ('target angle not in nav range')
-            #print (Rover.obspos)
-            stop_and_turn = True
-        steer_angle = np.clip(target_angle, -15, 15)
-        print ('target angle', target_angle)
-    else:
-        steer_angle = np.clip(np.mean(Rover.nav_angles_deg()), -15, 15)
-    print ('steer angle', steer_angle)
-    
-    mark_visited(Rover)
-    
-    if Rover.gold_angles is not None:
-        if len(Rover.gold_angles) > 0:
-            print('gold ahead')
+    #unseen_angles, unseen_dists = get_unseen_angles(Rover)
+    #print (unseen_angles)
     
     if Rover.nav_angles is not None:
-        # Check for Rover.mode status
+        #int_angles = Rover.nav_angles_deg().astype(int)
+        #int_dists = Rover.nav_dists.astype(int)
+
+        seen_gold = False
+        #print(Rover.gold_angles)
+        if Rover.gold_angles is not None and len(Rover.gold_angles) > 0:
+            seen_gold = True
+        
         if Rover.mode == 'forward': 
             # Check the extent of navigable terrain
-            if len(Rover.nav_angles) >= Rover.stop_forward and not stop_and_turn:
-                print('moving: enough angles and no stop_and_turn')
+            if Rover.stuck():
+                print('forward: rover stuck')
+                Rover.throttle = 0
+                Rover.steer = -15
+                Rover.mode = 'stuck'
+#            elif len(unseen_angles) >= Rover.stop_forward:
+#                print ('we have unseen pixels')
+#                if Rover.vel < Rover.max_vel:
+#                    Rover.throttle = Rover.throttle_set
+#                else: # Else coast
+#                    Rover.throttle = 0
+#                Rover.brake = 0
+#                # Set steering to average angle clipped to the range +/- 15
+#                Rover.steer = np.clip(np.mean(unseen_angles), -15, 15)
+            elif seen_gold and not Rover.near_sample \
+                and np.min(Rover.gold_angles) > np.min(Rover.nav_angles) \
+                and np.max(Rover.gold_angles) < np.max(Rover.nav_angles):
+                print('forward: seen gold, and not near sample')
+                dist_to_gold = Rover.gold_dists[0]
+                print('steer', np.mean(Rover.gold_angles * 180/np.pi))
+                print('dist to gold', dist_to_gold)
+                if Rover.vel > 0.2:
+                    print('too fast for gold')
+                    Rover.throttle = 0
+                    Rover.brake = 10
+                if Rover.vel < 0.1:
+                    print('too slow for gold')
+                    Rover.throttle = 0.1
+                    Rover.brake = 0
+                else:
+                    Rover.throttle = 0
+                    Rover.brake = 0
+                Rover.steer = np.clip(np.mean(Rover.gold_angles * 180/np.pi), -15, 15)
+            elif Rover.near_sample:
+                print('forward: near sample, start stopping')
+                # Set mode to "stop" and hit the brakes!
+                Rover.throttle = 0
+                # Set brake to stored brake value
+                Rover.brake = Rover.brake_set
+                Rover.steer = 0
+                Rover.mode = 'stop'
+            elif len(Rover.nav_angles) >= Rover.stop_forward:  
+                print('forward: enough angles move forward')
                 # If mode is forward, navigable terrain looks good 
                 # and velocity is below max, then throttle 
                 if Rover.vel < Rover.max_vel:
@@ -81,12 +106,11 @@ def decision_step(Rover):
                 else: # Else coast
                     Rover.throttle = 0
                 Rover.brake = 0
-                # Set steering to average angle clipped to the range +/- 15
-                Rover.steer = steer_angle
+                Rover.steer = np.clip(np.mean(Rover.nav_angles * 180/np.pi) + randint(-2, 2), -15, 15)
             # If there's a lack of navigable terrain pixels then go to 'stop' mode
-            else:#if len(Rover.nav_angles) < Rover.stop_forward:
+            elif len(Rover.nav_angles) < Rover.stop_forward:
+                print('forward: no angles stop')
                 # Set mode to "stop" and hit the brakes!
-                print('moving: need to stop')
                 Rover.throttle = 0
                 # Set brake to stored brake value
                 Rover.brake = Rover.brake_set
@@ -94,46 +118,61 @@ def decision_step(Rover):
                 Rover.mode = 'stop'
 
         # If we're already in "stop" mode then make different decisions
-        elif Rover.mode == 'stop':
+        elif Rover.mode == 'stop' or Rover.mode == 'stuck':
             # If we're in stop mode but still moving keep braking
-            if Rover.vel > 0.2:
+            if Rover.stuck():
+                Rover.throttle = 0
+                Rover.steer = -15
+                Rover.mode = 'stuck'
+            elif Rover.vel > 0.2:
                 Rover.throttle = 0
                 Rover.brake = Rover.brake_set
                 Rover.steer = 0
             # If we're not moving (vel < 0.2) then do something else
             elif Rover.vel <= 0.2:
                 # Now we're stopped and we have vision data to see if there's a path forward
-                if len(Rover.nav_angles) < Rover.go_forward:
-                    print('stopped: not enough angles')
-
+#                if len(unseen_angles) >= Rover.stop_forward:
+#                    if Rover.vel < Rover.max_vel:
+#                        Rover.throttle = Rover.throttle_set
+#                    else: # Else coast
+#                        Rover.throttle = 0
+#                    Rover.brake = 0
+#                    # Set steering to average angle clipped to the range +/- 15
+#                    Rover.steer = np.clip(np.mean(unseen_angles), -15, 15)
+                if seen_gold and not Rover.near_sample:
+                    print('stop: seen gold, and not near sample')
+                    dist_to_gold = Rover.gold_dists[0]
+                    print('steer', np.mean(Rover.gold_angles * 180/np.pi))
+                    print('dist to gold', dist_to_gold)
+                    print('too slow for gold')
+                    Rover.throttle = 0.1
+                    Rover.brake = 0
+                    Rover.steer = np.clip(np.mean(Rover.gold_angles * 180/np.pi), -15, 15)
+                elif Rover.near_sample:
+                    print('stop: near sample, start stopping')
+                    # Set mode to "stop" and hit the brakes!
+                    Rover.throttle = 0
+                    # Set brake to stored brake value
+                    Rover.brake = Rover.brake_set
+                    Rover.steer = 0
+                elif len(Rover.nav_angles) < Rover.go_forward:
+                    print('stop: stop and turn left')
                     Rover.throttle = 0
                     # Release the brake to allow turning
                     Rover.brake = 0
                     # Turn range is +/- 15 degrees, when stopped the next line will induce 4-wheel turning
-                    #if len(navRange.nav_angles_deg) == 0 or np.min(navRange.nav_angles_deg) < 0:
-                    #    Rover.steer = -15
-                    #else:
-                    Rover.steer = steer_angle
-#                    if np.sign(steer_angle) > 0:
-#                        Rover.steer = 15
-#                    else:
-#                        Rover.steer = -15
-                    # Could be more clever here about which way to turn
+                    Rover.steer = -15 # Could be more clever here about which way to turn
                 # If we're stopped but see sufficient navigable terrain in front then go!
-                elif stop_and_turn:
-                    print('stopped: stop_and_turn', steer_angle)
-                    Rover.throttle = 0
-                    Rover.brake = 0
-                    Rover.steer = steer_angle
-                else:
-                    print('stopped: move forward', steer_angle)
+                elif len(Rover.nav_angles) >= Rover.go_forward:
+                    print('stop: move forward')
                     # Set throttle back to stored value
                     Rover.throttle = Rover.throttle_set
                     # Release the brake
                     Rover.brake = 0
                     # Set steer to mean angle
-                    Rover.steer = steer_angle
+                    Rover.steer = np.clip(np.mean(Rover.nav_angles * 180/np.pi), -15, 15)
                     Rover.mode = 'forward'
+                
     # Just to make the rover do something 
     # even if no modifications have been made to the code
     else:

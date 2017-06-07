@@ -26,8 +26,8 @@ def color_thresh(img, rgb_thresh=(160, 160, 160)):
     #print(hsv[150,160])
     
     # define range of gold color in HSV
-    lower_gold = np.array([10,120,70])
-    upper_gold = np.array([120,255,255])
+    lower_gold = np.array([10,100,100])
+    upper_gold = np.array([30,255,255])
 
     # Threshold the HSV image to get only gold colors
     mask = cv2.inRange(hsv, lower_gold, upper_gold)
@@ -35,8 +35,7 @@ def color_thresh(img, rgb_thresh=(160, 160, 160)):
     # Bitwise-AND mask and original image
     res = cv2.bitwise_and(img, img, mask= mask)
     gold_thresh = (res[:,:,0] > 0) \
-                & (res[:,:,1] > 0) \
-                & (res[:,:,2] > 0)
+                & (res[:,:,1] > 0) 
             
     #print(res[150,160])
     
@@ -58,15 +57,16 @@ def color_thresh(img, rgb_thresh=(160, 160, 160)):
     return color_select
     #return (color_select, obstacle_select, gold_select)
 
-# Define a function to convert to rover-centric coordinates
+# Define a function to convert from image coords to rover coords
 def rover_coords(binary_img):
     # Identify nonzero pixels
     ypos, xpos = binary_img.nonzero()
     # Calculate pixel positions with reference to the rover position being at the 
     # center bottom of the image.  
-    x_pixel = np.absolute(ypos - binary_img.shape[0]).astype(np.float)
-    y_pixel = -(xpos - binary_img.shape[0]).astype(np.float)
+    x_pixel = -(ypos - binary_img.shape[0]).astype(np.float)
+    y_pixel = -(xpos - binary_img.shape[1]/2 ).astype(np.float)
     return x_pixel, y_pixel
+
 
 # Define a function to convert to radial coords in rover space
 def to_polar_coords(x_pixel, y_pixel):
@@ -78,21 +78,23 @@ def to_polar_coords(x_pixel, y_pixel):
     angles = np.arctan2(y_pixel, x_pixel)
     return dist, angles
 
-# Define a function to apply a rotation to pixel positions
+# Define a function to map rover space pixels to world space
 def rotate_pix(xpix, ypix, yaw):
+    # Convert yaw to radians
     yaw_rad = yaw * np.pi / 180
-    xpix_rotated = xpix * np.cos(yaw_rad) - ypix * np.sin(yaw_rad)
-    ypix_rotated = xpix * np.sin(yaw_rad) + ypix * np.cos(yaw_rad)
+    xpix_rotated = (xpix * np.cos(yaw_rad)) - (ypix * np.sin(yaw_rad))
+                            
+    ypix_rotated = (xpix * np.sin(yaw_rad)) + (ypix * np.cos(yaw_rad))
     # Return the result  
     return xpix_rotated, ypix_rotated
 
-# Define a function to perform a translation
 def translate_pix(xpix_rot, ypix_rot, xpos, ypos, scale): 
-    # Perform translation and convert to integer since pixel values can't be float
-    xpix_translated = np.int_(xpos + (xpix_rot / scale))
-    ypix_translated = np.int_(ypos + (ypix_rot / scale))
+    # Apply a scaling and a translation
+    xpix_translated = (xpix_rot / scale) + xpos
+    ypix_translated = (ypix_rot / scale) + ypos
     # Return the result  
     return xpix_translated, ypix_translated
+
 
 # Define a function to apply rotation and translation (and clipping)
 # Once you define the two functions above this function should work
@@ -115,6 +117,7 @@ def perspect_transform(img, src, dst):
     
     return warped
 
+
 MIN_DIST_TO_MOVE = 1
 
 #min x which is unblocked
@@ -126,9 +129,9 @@ def get_min_x_unblocked(mp):
 #lowest_ub = get_min_x_unblocked(mp)
 #print(lowest_ub)
 
-def is_on_border(mp, pos):
-    for di in range(-1, 2):
-        for dj in range(-1, 2):
+def is_on_border(mp, pos, r=4):
+    for di in range(-r, r+1):
+        for dj in range(-r, r+1):
             if mp[pos[0] + di, pos[1] + dj] == 0.0:
                 return True
     return False
@@ -230,11 +233,17 @@ def greedy_path(current_path):
     return new_path
 
 
-def closest_point_on_path(Rover):
+def closest_point_on_path(Rover, visited = False):
     min_dist = None
     min_pos = None
     #print(Rover.not_visited)
-    for to in Rover.not_visited:
+    path = None
+    if visited:
+        path = Rover.apath
+    else:
+        path = Rover.not_visited
+    
+    for to in path:
         #rover_pt = world_to_pix(to[0], to[1], Rover.pos[0], Rover.pos[1], Rover.yaw)
         #d = int(np.sqrt(rover_pt[0]**2 + rover_pt[1]**2))
         #a = int(np.arctan2(rover_pt[1], rover_pt[0]) * 180/np.pi)
@@ -339,60 +348,69 @@ def perception_step(Rover):
         #          Rover.worldmap[rock_y_world, rock_x_world, 1] += 1
         #          Rover.worldmap[navigable_y_world, navigable_x_world, 2] += 1
     #navigable
-    xpos = Rover.pos[0]
-    ypos = Rover.pos[1]
-   
-    yaw = Rover.yaw
-    world_size = Rover.worldmap.shape[0]
-    scale = 10
-
-    #navigable
-    xpix, ypix = rover_coords(threshed == NAVIGABLE_COLOR)
-    x_world, y_world = pix_to_world(xpix, ypix, xpos, ypos, yaw, world_size, scale)
-    Rover.nav_x_w, Rover.nav_y_w = x_world, y_world
-    Rover.worldmap[y_world, x_world, 2] += 1
-    Rover.nav_dists, Rover.nav_angles = to_polar_coords(xpix, ypix)
+    if Rover.pos != None:
+        print(Rover.pos)
+        xpos = Rover.pos[0]
+        ypos = Rover.pos[1]
+       
+        yaw = Rover.yaw
+        world_size = Rover.worldmap.shape[0]
+        scale = 10
+        Rover.navpos = []
+        Rover.obspos = set([])
     
-    #obstacle
-    xpix, ypix = rover_coords(threshed == OBSTACLE_COLOR)
-    x_world, y_world = pix_to_world(xpix, ypix, xpos, ypos, yaw, world_size, scale)
-    Rover.obspos = set([])
-    for i in range(len(x_world)):
-        pos = (x_world[i], y_world[i])
-        Rover.obspos.add(pos)
-    Rover.worldmap[y_world, x_world, 0] += 1
-
-    #gold
-    xpix, ypix = rover_coords(threshed == GOLD_COLOR)
-    x_world, y_world = pix_to_world(xpix, ypix, xpos, ypos, yaw, world_size, scale)
-    Rover.worldmap[y_world, x_world, 1] += 1
-    Rover.gold_dists, Rover.gold_angles = to_polar_coords(xpix, ypix)
-
-    # 8) Convert rover-centric pixel positions to polar coordinates
-    # Update Rover pixel distances and angles
-        # Rover.nav_dists = rover_centric_pixel_distances
-        # Rover.nav_angles = rover_centric_angles
+        #navigable
+        xpix, ypix = rover_coords(threshed == NAVIGABLE_COLOR)
+        x_world, y_world = pix_to_world(xpix, ypix, xpos, ypos, yaw, world_size, scale)
+        Rover.nav_x_w, Rover.nav_y_w = x_world, y_world
+        if (Rover.pitch < 1 or Rover.pitch > 359) and (Rover.roll < 1 or Rover.roll > 359):
+            Rover.worldmap[y_world, x_world, 2] += 1
+        for i in range(len(xpix)):
+            pos = (x_world[i], y_world[i])
+            Rover.navpos.append(pos)
+        Rover.nav_dists, Rover.nav_angles = to_polar_coords(xpix, ypix)
+        
+        #obstacle
+        xpix, ypix = rover_coords(threshed == OBSTACLE_COLOR)
+        x_world, y_world = pix_to_world(xpix, ypix, xpos, ypos, yaw, world_size, scale)
+        for i in range(len(x_world)):
+            pos = (x_world[i], y_world[i])
+            Rover.obspos.add(pos)
+        if (Rover.pitch < 1 or Rover.pitch > 359) and (Rover.roll < 1 or Rover.roll > 359):
+            Rover.worldmap[y_world, x_world, 0] += 1
     
-    Rover.threshed = threshed
+        #gold
+        xpix, ypix = rover_coords(threshed == GOLD_COLOR)
+        x_world, y_world = pix_to_world(xpix, ypix, xpos, ypos, yaw, world_size, scale)
+        if (Rover.pitch < 1 or Rover.pitch > 359) and (Rover.roll < 1 or Rover.roll > 359):
+            Rover.worldmap[y_world, x_world, 1] += 1
+        Rover.gold_dists, Rover.gold_angles = to_polar_coords(xpix, ypix)
     
-    if Rover.medians == None:
-        lrmedians = median_path(Rover.mp)
-        upmedians = median_path(Rover.mp, False)
-        Rover.medians = lrmedians + upmedians
-        Rover.apath = greedy_path(Rover.medians)
-        print ('rover path', Rover.apath)
-        for p in Rover.apath:
-            mark_neighbors(Rover, p[0], p[1])
-        Rover.not_visited = set(Rover.apath)
-        Rover.visited = set([])
-        Rover.int_dists = Rover.nav_dists.astype(int)
-        Rover.int_angles = Rover.nav_angles_deg().astype(int)
-    
-    Rover.nav_unique_pos = set([])
-    for i in range(len(Rover.nav_x_w)):
-        pos = (Rover.nav_x_w[i], Rover.nav_y_w[i])
-        Rover.nav_unique_pos.add(pos)
-    #print('unique world positions navigable', Rover.nav_unique_pos)
+        # 8) Convert rover-centric pixel positions to polar coordinates
+        # Update Rover pixel distances and angles
+            # Rover.nav_dists = rover_centric_pixel_distances
+            # Rover.nav_angles = rover_centric_angles
+        
+        Rover.threshed = threshed
+        
+    #    if Rover.medians == None:
+    #        lrmedians = median_path(Rover.mp)
+    #        upmedians = median_path(Rover.mp, False)
+    #        Rover.medians = lrmedians + upmedians
+    #        Rover.apath = greedy_path(Rover.medians)
+    #        print ('rover path', Rover.apath)
+    #        for p in Rover.apath:
+    #            mark_neighbors(Rover, p[0], p[1])
+    #        Rover.not_visited = set(Rover.apath)
+    #        Rover.visited = set([])
+    #        Rover.int_dists = Rover.nav_dists.astype(int)
+    #        Rover.int_angles = Rover.nav_angles_deg().astype(int)
+    #    
+    #    Rover.nav_unique_pos = set([])
+    #    for i in range(len(Rover.nav_x_w)):
+    #        pos = (Rover.nav_x_w[i], Rover.nav_y_w[i])
+    #        Rover.nav_unique_pos.add(pos)
+        #print('unique world positions navigable', Rover.nav_unique_pos)
 
     return Rover
 
