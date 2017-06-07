@@ -349,7 +349,6 @@ def perception_step(Rover):
         #          Rover.worldmap[navigable_y_world, navigable_x_world, 2] += 1
     #navigable
     if Rover.pos != None:
-        print(Rover.pos)
         xpos = Rover.pos[0]
         ypos = Rover.pos[1]
        
@@ -359,11 +358,15 @@ def perception_step(Rover):
         Rover.navpos = []
         Rover.obspos = set([])
     
+        margin = 0.5
+        roll_max, roll_min = 360-margin, margin
+        pitch_max, pitch_min = 360-margin, margin
+        
         #navigable
         xpix, ypix = rover_coords(threshed == NAVIGABLE_COLOR)
         x_world, y_world = pix_to_world(xpix, ypix, xpos, ypos, yaw, world_size, scale)
         Rover.nav_x_w, Rover.nav_y_w = x_world, y_world
-        if (Rover.pitch < 1 or Rover.pitch > 359) and (Rover.roll < 1 or Rover.roll > 359):
+        if (Rover.pitch < pitch_min or Rover.pitch > pitch_max) and (Rover.roll < roll_min or Rover.roll > roll_max):
             Rover.worldmap[y_world, x_world, 2] += 1
         for i in range(len(xpix)):
             pos = (x_world[i], y_world[i])
@@ -376,13 +379,13 @@ def perception_step(Rover):
         for i in range(len(x_world)):
             pos = (x_world[i], y_world[i])
             Rover.obspos.add(pos)
-        if (Rover.pitch < 1 or Rover.pitch > 359) and (Rover.roll < 1 or Rover.roll > 359):
+        if (Rover.pitch < pitch_min or Rover.pitch > pitch_max) and (Rover.roll < roll_min or Rover.roll > roll_max):
             Rover.worldmap[y_world, x_world, 0] += 1
     
         #gold
         xpix, ypix = rover_coords(threshed == GOLD_COLOR)
         x_world, y_world = pix_to_world(xpix, ypix, xpos, ypos, yaw, world_size, scale)
-        if (Rover.pitch < 1 or Rover.pitch > 359) and (Rover.roll < 1 or Rover.roll > 359):
+        if (Rover.pitch < pitch_min or Rover.pitch > pitch_max) and (Rover.roll < roll_min or Rover.roll > roll_max):
             Rover.worldmap[y_world, x_world, 1] += 1
         Rover.gold_dists, Rover.gold_angles = to_polar_coords(xpix, ypix)
     
