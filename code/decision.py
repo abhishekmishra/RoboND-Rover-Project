@@ -1,30 +1,30 @@
 import numpy as np
 from random import randint
 
-def subset_angles_dists(angles, dists, angle_pred):
-    s_angles = []
-    s_dists = []
-    for i in range(len(angles)):
-        if angle_pred(angles[i]):
-            s_angles.append(angles[i])
-            s_dists.append(dists[i])
-            
-    return s_angles, s_dists
-
-def already_seen(Rover, pos):
-    x, y = pos[0], pos[1]
-    return Rover.worldmap[x, y, 2] > 0 or Rover.worldmap[x, y, 1] > 0 or Rover.worldmap[x, y, 0] > 0
-
-def get_unseen_angles(Rover):
-    int_angles = Rover.nav_angles_deg().astype(int)
-    int_dists = Rover.nav_dists.astype(int)
-    angles = []
-    dists = []
-    for i in range(len(Rover.navpos)):
-        if not already_seen(Rover, Rover.navpos[i]):
-            angles.append(int_angles[i])
-            dists.append(int_dists[i])
-    return angles, dists
+#def subset_angles_dists(angles, dists, angle_pred):
+#    s_angles = []
+#    s_dists = []
+#    for i in range(len(angles)):
+#        if angle_pred(angles[i]):
+#            s_angles.append(angles[i])
+#            s_dists.append(dists[i])
+#            
+#    return s_angles, s_dists
+#
+#def already_seen(Rover, pos):
+#    x, y = pos[0], pos[1]
+#    return Rover.worldmap[x, y, 2] > 0 or Rover.worldmap[x, y, 1] > 0 or Rover.worldmap[x, y, 0] > 0
+#
+#def get_unseen_angles(Rover):
+#    int_angles = Rover.nav_angles_deg().astype(int)
+#    int_dists = Rover.nav_dists.astype(int)
+#    angles = []
+#    dists = []
+#    for i in range(len(Rover.navpos)):
+#        if not already_seen(Rover, Rover.navpos[i]):
+#            angles.append(int_angles[i])
+#            dists.append(int_dists[i])
+#    return angles, dists
 
 def dist_at_range(angles, dists, r=range(35, 40)):
     total = 0
