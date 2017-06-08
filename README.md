@@ -1,48 +1,63 @@
-[//]: # (Image References)
-[image_0]: ./misc/rover_image.jpg
+[image1]: ./threshold_image.png
+[image2]: ./coordinate_transform.png
+[image3]: ./process_image.png
+[image4]: ./roversim_screenshot.png
+
 # Search and Sample Return Project
-![alt text][image_0] 
 
-This project is modeled after the [NASA sample return challenge](https://www.nasa.gov/directorates/spacetech/centennial_challenges/sample_return_robot/index.html) and it will give you first hand experience with the three essential elements of robotics, which are perception, decision making and actuation.  You will carry out this project in a simulator environment built with the Unity game engine.  
+## Rover Analysis Jupyter Notebook
 
-## The Simulator
-The first step is to download the simulator build that's appropriate for your operating system.  Here are the links for [Linux](https://s3-us-west-1.amazonaws.com/udacity-robotics/Rover+Unity+Sims/Linux_Roversim.zip), [Mac](	https://s3-us-west-1.amazonaws.com/udacity-robotics/Rover+Unity+Sims/Mac_Roversim.zip), or [Windows](https://s3-us-west-1.amazonaws.com/udacity-robotics/Rover+Unity+Sims/Windows_Roversim.zip).  
+I've implemented the following in the notebook:
 
-You can test out the simulator by opening it up and choosing "Training Mode".  Use the mouse or keyboard to navigate around the environment and see how it looks.
+### Running notebook and simulator, loading data
+* Recorded data from simulator and stored in on disk.
+* Loaded data in the notebook from the recorded data folder
 
-## Dependencies
-You'll need Python 3 and Jupyter Notebooks installed to do this project.  The best way to get setup with these if you are not already is to use Anaconda following along with the [RoboND-Python-Starterkit](https://github.com/ryan-keenan/RoboND-Python-Starterkit). 
+### Thresholding for rover image (to discriminate sample, blocked and unblocked areas)
+* Implemented thresholding in the color_thresh function such that the image returned has different integer values when a pixel/coordinate in the image is navigable/obstacle/gold sample.
+* An example thresholded image is given below. It shows orange areas are blocked, white area is the sample, and black area is navigable.
 
+![image1]
 
-Here is a great link for learning more about [Anaconda and Jupyter Notebooks](https://classroom.udacity.com/courses/ud1111)
+### Coordinate transform
+* Applied coordinate transformations as done in the exercises
+* Sample image from notebook
 
-## Recording Data
-I've saved some test data for you in the folder called `test_dataset`.  In that folder you'll find a csv file with the output data for steering, throttle position etc. and the pathnames to the images recorded in each run.  I've also saved a few images in the folder called `calibration_images` to do some of the initial calibration steps with.  
+![image2]
 
-The first step of this project is to record data on your own.  To do this, you should first create a new folder to store the image data in.  Then launch the simulator and choose "Training Mode" then hit "r".  Navigate to the directory you want to store data in, select it, and then drive around collecting data.  Hit "r" again to stop data collection.
+### Process image
+* Changed the process image function to load image data from each row of recorded data
+* Process each image and create a thresholded image
+* Transform coordinates and update the world map such that gold sample, obstacle and navigable areas are appropriately updated in the corresponding r/g/b channels.
+* Sample output from process_image
 
-## Data Analysis
-Included in the IPython notebook called `Rover_Project_Test_Notebook.ipynb` are the functions from the lesson for performing the various steps of this project.  The notebook should function as is without need for modification at this point.  To see what's in the notebook and execute the code there, start the jupyter notebook server at the command line like this:
+![image3]
 
-```sh
-jupyter notebook
-```
+### Create Video
+* Uploaded video to youtube [https://www.youtube.com/watch?v=8iebrRtWKGc]
 
-This command will bring up a browser window in the current directory where you can navigate to wherever `Rover_Project_Test_Notebook.ipynb` is and select it.  Run the cells in the notebook from top to bottom to see the various data analysis steps.  
+## Rover navigation in autonomous mode
 
-The last two cells in the notebook are for running the analysis on a folder of test images to create a map of the simulator environment and write the output to a video.  These cells should run as-is and save a video called `test_mapping.mp4` to the `output` folder.  This should give you an idea of how to go about modifying the `process_image()` function to perform mapping on your data.  
+### Perception code (perception.py)
+* Added process_image code and coordinate transformation code in perception.py
+* Made sure I only update the world map when the roll and pitch are close to 0 or 360.
+* Stored nav angles/dists and gold angles/dists for use in the decision making.
 
-## Navigating Autonomously
-The file called `drive_rover.py` is what you will use to navigate the environment in autonomous mode.  This script calls functions from within `perception.py` and `decision.py`.  The functions defined in the IPython notebook are all included in`perception.py` and it's your job to fill in the function called `perception_step()` with the appropriate processing steps and update the rover map. `decision.py` includes another function called `decision_step()`, which includes an example of a conditional statement you could use to navigate autonomously.  Here you should implement other conditionals to make driving decisions based on the rover's state and the results of the `perception_step()` analysis.
+### Rover decision (decision.py)
+* I have added the following checks to the decision tree
+* Check for 'Stuck'
+1. An ability to check if the rover is stuck.
+2. If it is stuck, then stop, turn and get away from obstacle
+* Stay close to left wall
+1. Always calculate max navigable distance in the range [35, 40] degrees of the rover.
+2. If the distance is less than safe distance, turn right
+3. If the distance is optimal stay sort of straight.
+4. If too far try to find left wall.
+* Pickup gold
+1. At any time gold is seen, rover locks to it.
+2. reduces speed and starts approaching it.
+3. Stops when it is near sample, and wait till pickup.
+4. When done, resume.
 
-`drive_rover.py` should work as is if you have all the required Python packages installed. Call it at the command line like this: 
-
-```sh
-python drive_rover.py
-```  
-
-Then launch the simulator and choose "Autonomous Mode".  The rover should drive itself now!  It doesn't drive that well yet, but it's your job to make it better!  
-
-**Note: running the simulator with different choices of resolution and graphics quality may produce different results!  Make a note of your simulator settings in your writeup when you submit the project.**
-
-
+Screenshot of rover run below:
+![image4]
