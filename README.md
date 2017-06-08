@@ -2,6 +2,7 @@
 [image2]: ./coordinate_transform.png
 [image3]: ./process_image.png
 [image4]: ./roversim_screenshot.png
+[image5]: ./rover_settings.png
 
 # Search and Sample Return Project
 
@@ -34,9 +35,13 @@ I've implemented the following in the notebook:
 ![image3]
 
 ### Create Video
-* Uploaded video to youtube [https://www.youtube.com/watch?v=8iebrRtWKGc]
+* Uploaded video to youtube [https://www.youtube.com/watc   h?v=8iebrRtWKGc]
 
 ## Rover navigation in autonomous mode
+
+### My rover settings
+
+![image5]
 
 ### Perception code (perception.py)
 * Added process_image code and coordinate transformation code in perception.py
